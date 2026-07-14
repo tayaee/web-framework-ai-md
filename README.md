@@ -30,3 +30,6 @@ backend service via POST requests.
 5. Run the following on terminal: `curl -X POST localhost:8080/convert.ai.md/convert -H 'Content-Type: application/json' -d '{"temperature": 30, "type": "C"}'`
 6. Edit src/convert.ai.md to change the contract, and hit the URL again.
 
+## Tested platforms
+
+* Windows (WSL + Docker Desktop) + MiniMax-M3
