@@ -65,6 +65,7 @@ def atomic_write(path: Path, text: str) -> None:
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(text)
+        os.chmod(tmp_path, 0o644)
         os.replace(tmp_path, path)
     except Exception as e:
         if os.path.exists(tmp_path):

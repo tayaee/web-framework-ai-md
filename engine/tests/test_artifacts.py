@@ -106,6 +106,18 @@ def test_atomic_write(test_settings):
     assert files[0] == target
 
 
+def test_atomic_write_sets_readable_permissions(test_settings):
+    """issue-54: files written by atomic_write must be readable by other
+    users/processes (mode 0o644), not the tempfile.mkstemp default of 0o600 --
+    otherwise a separate container (e.g. nginx) serving dist/ directly gets a
+    403 even though the file exists."""
+    target = test_settings.dist_dir / "tetris.ai.md.html"
+    atomic_write(target, "<html></html>")
+
+    mode = target.stat().st_mode & 0o777
+    assert mode == 0o644
+
+
 def test_atomic_write_creates_missing_parent(test_settings):
     """atomic_write must create the parent directory when it doesn't exist on disk
     and write successfully (fix from issue-20)."""

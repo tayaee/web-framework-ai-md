@@ -8,10 +8,10 @@ services:
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-200000}
       - LLM_API_PROTOCOL=${LLM_API_PROTOCOL:-openai}
     volumes:
-      - ./src:/opt/aimd/src:ro     # 생성 코드가 명세 원본을 못 건드림 (ADR-0009)
+      - ./src:/opt/aimd/src:ro
       - ./dist:/opt/aimd/dist
     expose:
-      - "8000"                     # 호스트 비바인딩 — nginx 통해서만 접근
+      - "8000"
     restart: unless-stopped
 
   nginx:

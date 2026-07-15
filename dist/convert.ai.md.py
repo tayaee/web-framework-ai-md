@@ -3,19 +3,19 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-class TemperatureInput(BaseModel):
+class TemperatureRequest(BaseModel):
     temperature: float
     type: str
 
-class TemperatureOutput(BaseModel):
+class TemperatureResponse(BaseModel):
     result: float
 
-@app.post("/convert2")
-def convert_temperature(data: TemperatureInput):
-    if data.type == "C":
-        result = data.temperature * 9/5 + 32
-    elif data.type == "F":
-        result = (data.temperature - 32) * 5/9
+@app.post("/convert")
+def convert(req: TemperatureRequest):
+    if req.type == "C":
+        result = req.temperature * 9/5 + 32
+    elif req.type == "F":
+        result = (req.temperature - 32) * 5/9
     else:
         result = None
-    return {"result": result}
+    return TemperatureResponse(result=result)
