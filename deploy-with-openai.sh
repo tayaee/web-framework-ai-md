@@ -10,6 +10,6 @@ if [ -z "$LLM_API_KEY" ]; then
 fi
 export LLM_NAME=openai
 export LLM_BASE_URL=https://api.openai.com/v1
-export LLM_MODEL=${LLM_MODEL:-gpt-5.6-luna}
+export LLM_MODEL=${LLM_MODEL:-o4-mini}
 export LLM_API_PROTOCOL=openai
-docker compose up -d
+docker compose up -d --build

@@ -8,7 +8,7 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:?LLM_API_KEY is required}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://api.minimax.io/v1}
       - LLM_MODEL=${LLM_MODEL:-MiniMax-M3}
-      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-200000}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-100000}
       - LLM_API_PROTOCOL=${LLM_API_PROTOCOL:-openai}
     volumes:
       - ./src:/opt/aimd/src:ro

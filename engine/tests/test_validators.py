@@ -37,6 +37,18 @@ def test_extract_code_no_fence_returns_stripped_text():
     assert extract_code(md) == "print('hi')"
 
 
+def test_extract_code_strips_think_block_no_fence():
+    # Reasoning models (e.g. MiniMax-M3) prepend <think>...</think> commentary
+    # before the actual answer -- it must not be mistaken for code.
+    raw = "<think>\nreasoning about the task\n</think>\n\n<!DOCTYPE html><html></html>"
+    assert extract_code(raw) == "<!DOCTYPE html><html></html>"
+
+
+def test_extract_code_strips_think_block_with_fence():
+    raw = "<think>\nplanning...\n</think>\n\n```html\n<!DOCTYPE html><html></html>\n```"
+    assert extract_code(raw) == "<!DOCTYPE html><html></html>"
+
+
 def test_extract_code_handles_crlf_fence():
     md = "```python\r\nprint(1)\r\n```"
     assert extract_code(md) == "print(1)"

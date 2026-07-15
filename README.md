@@ -32,7 +32,7 @@ It is human-editable via text editors and directly compiled by the AI.MD engine 
     ```
     export LLM_API_KEY=$OPENAI_API_KEY
     ./build.sh
-    ./undeploy.sh
+    ./undeploy-openai.sh
     ./deploy-with-openai.sh
     ```
   #### Windows
@@ -40,7 +40,7 @@ It is human-editable via text editors and directly compiled by the AI.MD engine 
     ```
     set LLM_API_KEY=%OPENAI_API_KEY%
     .\build.bat
-    .\undeploy.bat
+    .\undeploy-openai.bat
     .\deploy-with-openai.bat
     ```
 * Open http://localhost:8080/ and try out the demo app Tetris

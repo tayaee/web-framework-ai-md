@@ -16,7 +16,7 @@ def test_load_settings_default(monkeypatch):
     assert settings.api_key == "test-api-key"
     assert settings.base_url == "https://api.minimax.io/v1"
     assert settings.model == "MiniMax-M3"
-    assert settings.max_tokens == 200000
+    assert settings.max_tokens == 100000
     assert settings.src_dir == Path("./src")
     assert settings.dist_dir == Path("./dist")
 

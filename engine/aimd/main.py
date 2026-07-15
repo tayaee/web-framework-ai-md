@@ -68,14 +68,18 @@ class AIMDDispatcher:
         subpath = m.group(2)
 
         if not artifacts.spec_path(name, self.settings).exists():
-            return await _plain(send, 404, "no such spec")
+            return await _json(
+                send, 404,
+                {"status": "not_found", "message": f"App '{name}' was not found."},
+            )
 
         # lazy compile -- issue-51 backoff applied
+        state = None
         if artifacts.is_stale(name, self.settings):
             spec_path = artifacts.spec_path(name, self.settings)
             spec_mtime = spec_path.stat().st_mtime
             artifact_exists = artifacts.artifact_path(name, self.settings) is not None
-            await self._maybe_compile(name, spec_mtime, artifact_exists)
+            state = await self._maybe_compile(name, spec_mtime, artifact_exists)
 
         html = artifacts.html_path(name, self.settings)
         py = artifacts.py_path(name, self.settings)
@@ -103,11 +107,19 @@ class AIMDDispatcher:
                 sub_scope["raw_path"] = sub_scope["path"].encode("latin-1")
             return await app(sub_scope, receive, send)
 
-        return await _json(send, 502, {"error": "no artifact"})
+        # No artifact yet -- either this is the first-ever compile attempt for
+        # this spec (just failed synchronously above) or a retry is still
+        # inside the issue-51 backoff window from an earlier failure. Either
+        # way, tell the caller the app is (still) being generated rather than
+        # implying it doesn't exist -- that's `not_found`, handled above.
+        message = "The app is being generated. Please try again shortly."
+        if state is not None and state.last_error is not None:
+            message = f"An error occurred while generating the app. Please try again shortly. ({state.last_error})"
+        return await _json(send, 502, {"status": "generating", "message": message})
 
     async def _maybe_compile(
         self, name: str, spec_mtime: float, artifact_exists: bool
-    ) -> None:
+    ) -> "LazyCompileState":
         """issue-51: Calls compile_spec within the backoff window per (name, spec_mtime).
 
         - No state, or backoff has expired -> try once. On success, remove the state.
@@ -115,6 +127,8 @@ class AIMDDispatcher:
           requests within the window get stale serving (if an artifact exists) / 502
           (if not).
         - Concurrent requests are serialized per name via the state's asyncio.Lock.
+
+        Returns the LazyCompileState so the caller can report last_error to the client.
         """
         # Hold the dict update only briefly, then release -- the critical section
         # is the lock inside state.
@@ -128,6 +142,7 @@ class AIMDDispatcher:
                 )
                 self._compile_state[(name, spec_mtime)] = state
         await state.run(name, self.settings, artifact_exists)
+        return state
 
 
 class LazyCompileState:
@@ -145,6 +160,7 @@ class LazyCompileState:
         self._next_attempt_at: float = 0.0  # monotonic seconds
         self._init_s = max(0, init_s)
         self._max_s = max(self._init_s, max_s)
+        self.last_error: str | None = None
 
     def _compute_next_window(self) -> float:
         """Computes the next backoff window on failure (exponential backoff, capped at max).
@@ -198,10 +214,12 @@ class LazyCompileState:
             window = self._compute_next_window()
             self._backoff_s = window
             self._next_attempt_at = self._now() + window
+            self.last_error = str(e)
         else:
             # Success -- reset the backoff state.
             self._backoff_s = 0.0
             self._next_attempt_at = 0.0
+            self.last_error = None
 
 
 # -- Low-level ASGI response helpers --------------------------------------
@@ -220,7 +238,9 @@ async def _plain(send, status: int, text: str) -> None:
 async def _json(send, status: int, obj: dict) -> None:
     import json
 
-    body = json.dumps(obj).encode("utf-8")
+    # ensure_ascii=False: emit non-ASCII characters (e.g. Korean) as raw UTF-8
+    # rather than \uXXXX escapes, so the JSON body is human-readable as-is.
+    body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
     await send({
         "type": "http.response.start",
         "status": status,

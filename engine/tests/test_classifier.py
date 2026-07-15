@@ -58,59 +58,34 @@ def test_classify_by_keywords_api_wins_on_convert_spec():
 
 def test_classify_returns_spa_when_llm_says_spa(monkeypatch):
     settings = make_settings()
-    monkeypatch.setattr(classifier.llm, "chat", lambda sys, user, s: "SPA")
+    monkeypatch.setattr(classifier, "classify_with_llm", lambda text, s: "spa")
     assert classifier.classify("anything", settings) == "spa"
 
 
-def test_classify_returns_api_when_llm_says_api_with_whitespace(monkeypatch):
+def test_classify_returns_api_when_llm_says_api(monkeypatch):
     settings = make_settings()
-    monkeypatch.setattr(classifier.llm, "chat", lambda sys, user, s: " api \n")
+    monkeypatch.setattr(classifier, "classify_with_llm", lambda text, s: "api")
     assert classifier.classify("anything", settings) == "api"
-
-
-def test_classify_falls_back_to_keywords_when_llm_returns_maybe(monkeypatch):
-    settings = make_settings()
-    # "MAYBE" is neither spa nor api, so it falls back to a keyword score comparison
-    monkeypatch.setattr(classifier.llm, "chat", lambda sys, user, s: "MAYBE")
-    # index spec -> has many spa keywords
-    assert classifier.classify(INDEX_SPEC, settings) == "spa"
 
 
 def test_classify_falls_back_to_keywords_when_llm_raises(monkeypatch):
     settings = make_settings()
 
-    def boom(sys, user, s):
+    def boom(text, s):
         raise RuntimeError("LLM down")
 
-    monkeypatch.setattr(classifier.llm, "chat", boom)
+    monkeypatch.setattr(classifier, "classify_with_llm", boom)
     assert classifier.classify(CONVERT_SPEC, settings) == "api"
-
-
-def test_classify_logs_unified_format_on_unexpected_answer(monkeypatch, caplog):
-    """issue-42: the unexpected-answer path must also use the single log format from the spec docstring."""
-    settings = make_settings()
-    monkeypatch.setattr(classifier.llm, "chat", lambda sys, user, s: "MAYBE")
-
-    import logging
-
-    with caplog.at_level(logging.WARNING, logger="aimd.classifier"):
-        result = classifier.classify(INDEX_SPEC, settings)
-
-    assert result == "spa"
-    assert any(
-        "LLM classification failed, falling back to keywords" in record.message
-        for record in caplog.records
-    ), f"unexpected log records: {[r.message for r in caplog.records]}"
 
 
 def test_classify_logs_unified_format_on_exception(monkeypatch, caplog):
     """issue-42: the Exception path must also use the same single log format."""
     settings = make_settings()
 
-    def boom(sys, user, s):
+    def boom(text, s):
         raise RuntimeError("LLM down")
 
-    monkeypatch.setattr(classifier.llm, "chat", boom)
+    monkeypatch.setattr(classifier, "classify_with_llm", boom)
 
     import logging
 
@@ -122,3 +97,23 @@ def test_classify_logs_unified_format_on_exception(monkeypatch, caplog):
         "LLM classification failed, falling back to keywords" in record.message
         for record in caplog.records
     ), f"unexpected log records: {[r.message for r in caplog.records]}"
+
+
+def test_build_model_uses_openai_for_default_provider():
+    settings = make_settings()
+    model = classifier._build_model(settings)
+    assert isinstance(model, classifier.OpenAIChatModel)
+
+
+def test_build_model_uses_anthropic_for_claude_provider():
+    settings = Settings(
+        api_key="k",
+        base_url="http://t",
+        model="claude-x",
+        max_tokens=8192,
+        src_dir=Path("./src"),
+        dist_dir=Path("./dist"),
+        provider="claude",
+    )
+    model = classifier._build_model(settings)
+    assert isinstance(model, classifier.AnthropicModel)

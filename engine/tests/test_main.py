@@ -62,6 +62,8 @@ async def test_missing_spec_returns_404(
     async with _client(dispatcher) as c:
         r = await c.get("/nonexistent.ai.md")
     assert r.status_code == 404
+    body = r.json()
+    assert body["status"] == "not_found"
 
 
 # Case 3: html exists in dist + fresh -> 200, content matches, compile_spec called 0 times
@@ -138,7 +140,8 @@ async def test_compile_failure_without_cache_returns_502(
         r = await c.get(f"/{name}")
     assert r.status_code == 502
     body = r.json()
-    assert "error" in body
+    assert body["status"] == "generating"
+    assert "boom" in body["message"]
 
 
 # Case 6: compile_spec raises + cache exists (stale) -> 200 (serves stale)

@@ -28,12 +28,20 @@ _UNCLOSED_FENCE_RE = re.compile(
     r"^[ \t]*`{3,4}[ \t]*[a-zA-Z0-9]*[ \t]*\r?\n",
     re.MULTILINE,
 )
+# Reasoning models (e.g. MiniMax-M3) prepend a <think>...</think> block of
+# chain-of-thought commentary before the actual answer. Strip it up front so
+# it never gets mistaken for code -- otherwise a stray "<html" mentioned
+# inside the reasoning text can make validate_html's substring check pass
+# while the "code" is really just commentary followed by unrelated HTML.
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
 _counter = itertools.count()
 
 
 def extract_code(llm_output: str) -> str:
     """Extract the code body from LLM output.
 
+    - Any <think>...</think> block (reasoning-model chain-of-thought, e.g.
+      MiniMax-M3) is stripped first, before fence detection.
     - If a markdown code fence (```) is present: return the content of the longest fence block
     - Otherwise: return the whole thing stripped
 
@@ -60,6 +68,7 @@ def extract_code(llm_output: str) -> str:
     `ast.parse` and caused a "marker-induced" SyntaxError. Stripping just the marker
     means subsequent validation reflects only the actual completeness of the code.
     """
+    llm_output = _THINK_BLOCK_RE.sub("", llm_output)
     # Prefer 4-backtick blocks (issue-24)
     matches_4 = _4FENCE_RE.findall(llm_output)
     if matches_4:
